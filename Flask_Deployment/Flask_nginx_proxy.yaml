@@ -1,0 +1,89 @@
+#Deployment of flask and nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask
+spec:
+  selector:
+    matchLabels:
+      app: flask
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: flask
+    spec:
+      containers:
+      - name: flask
+        image: yogen48/simple-flask-app
+        ports:
+          - containerPort: 8083
+
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "75m"
+
+
+
+
+#Autoscaling
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: flask-autoscaling
+spec:
+  scaleTargetRef:
+  #scaleRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: flask
+    #subresource: scale
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 50
+
+
+#Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask
+#  labels:
+#    name: flask-deployment
+spec:
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8083
+      nodePort: 30080
+
+  selector:
+    app: flask
+
+
+#Ingress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flask-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  rules:
+    - host: hello-flask.info
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: flask
+                port:
+                  number: 8083
